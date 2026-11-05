@@ -1,47 +1,40 @@
-import pickle
 import streamlit as st
+import pickle
 import pandas as pd
+import numpy as np
 
-st.set_page_config(
-    page_title="Random Forest Classifier App",
-    page_icon="📊",
-    layout="centered"
-)
+# Page configuration
+st.set_page_config(page_title="Student Performance Prediction", layout="centered")
 
+# App Header
+st.title("Student Performance")
+st.markdown("### By Saurabh Dahake")
+st.write("Provide the student's details below to predict performance.")
+
+# Load the trained model
 @st.cache_resource
 def load_model():
-    with open("RF_model.pkl", "rb") as file:
-        model = pickle.load(file)
+    with open("RF_model.pkl", "rb") as f:
+        model = pickle.load(f)
     return model
 
 model = load_model()
 
-st.title("🎓 Student Performance Prediction App")
-st.write("Enter the student details below to get the prediction from the Random Forest model.")
+# Sidebar inputs for the 9 features found in the model
+st.sidebar.header("Student Details Input")
 
-with st.form("prediction_form"):
-    st.subheader("Input Features")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        gender = st.selectbox("Gender", ["Male", "Female"])
-        age = st.number_input("Age", min_value=10, max_value=100, value=18, step=1)
-        study_hours_per_week = st.number_input("Study Hours Per Week", min_value=0.0, max_value=168.0, value=10.0, step=0.5)
-        attendance_rate = st.number_input("Attendance Rate (0-1 or %)", min_value=0.0, max_value=100.0, value=85.0, step=1.0)
-        parent_education = st.selectbox("Parent Education", ["High School", "Bachelor", "Master", "PhD", "Other"])
-        
-    with col2:
-        internet_access = st.selectbox("Internet Access", ["Yes", "No"])
-        extracurricular = st.selectbox("Extracurricular Activities", ["Yes", "No"])
-        previous_score = st.number_input("Previous Score", min_value=0.0, max_value=100.0, value=75.0, step=0.1)
-        final_score = st.number_input("Final Score", min_value=0.0, max_value=100.0, value=80.0, step=0.1)
-        
-    submit_button = st.form_submit_button(label="Predict")
+def user_input_features():
+    gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
+    age = st.sidebar.slider("Age", 10, 30, 18)
+    study_hours_per_week = st.sidebar.slider("Study Hours Per Week", 0.0, 50.0, 10.0)
+    attendance_rate = st.sidebar.slider("Attendance Rate (0.0 - 1.0)", 0.0, 1.0, 0.85)
+    parent_education = st.sidebar.selectbox("Parent Education Level", ["High School", "Bachelor", "Master", "PhD", "Other"])
+    internet_access = st.sidebar.selectbox("Internet Access", ["Yes", "No"])
+    extracurricular = st.sidebar.selectbox("Extracurricular Activities", ["Yes", "No"])
+    previous_score = st.sidebar.number_input("Previous Score", 0.0, 100.0, 75.0)
+    final_score = st.sidebar.number_input("Final Score", 0.0, 100.0, 80.0)
 
-if submit_button:
-   
-    input_data = pd.DataFrame({
+    data = {
         'gender': [gender],
         'age': [age],
         'study_hours_per_week': [study_hours_per_week],
@@ -51,19 +44,31 @@ if submit_button:
         'extracurricular': [extracurricular],
         'previous_score': [previous_score],
         'final_score': [final_score]
-    })
-    
+    }
+    return pd.DataFrame(data)
+
+df = user_input_features()
+
+# Display input summary
+st.subheader("Submitted Parameters")
+st.dataframe(df)
+
+# Prediction Button
+if st.button("Predict Performance"):
     try:
-        prediction = model.predict(input_data)
-        prediction_proba = model.predict_proba(input_data) if hasattr(model, "predict_proba") else None
-        
-        st.success(f"### Prediction Result: **{prediction[0]}**")
+        prediction = model.predict(df)
+        prediction_proba = model.predict_proba(df) if hasattr(model, "predict_proba") else None
+
+        st.subheader("Prediction Result")
+        st.success(f"Predicted Class: **{prediction[0]}**")
         
         if prediction_proba is not None:
-            st.write(f"**Confidence / Probabilities:**")
-            classes = model.classes_
-            for cls, prob in zip(classes, prediction_proba[0]):
-                st.write(f"- Class `{cls}`: `{prob:.2f}`")
+            confidence = np.max(prediction_proba) * 100
+            st.info(f"Confidence: {confidence:.2f}%")
+            
+    except Exception as e:
+        st.error(f"Error during prediction: {e}")
+        st.warning("Tip: Make sure categorical features match the exact encoding/format (Label Encoding vs One-Hot Encoding) used when the model was originally trained.")
                 
     except Exception as e:
       st.error(f"Error during prediction: {e}")
